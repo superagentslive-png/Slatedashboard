@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Slate Financial — Command Dashboard v2</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#0f0f0f;--s1:#161616;--s2:#1e1e1e;--s3:#262626;
+  --b1:#2e2e2e;--b2:#3a3a3a;--b3:#484848;
+  --t1:#f0f0f0;--t2:#a0a0a0;--t3:#606060;
+  --green:#22c55e;--green-d:#166534;--green-bg:#052e16;
+  --red:#ef4444;--red-d:#991b1b;--red-bg:#1f0505;
+  --amber:#f59e0b;--amber-d:#92400e;--amber-bg:#1c0e00;
+  --blue:#3b82f6;--blue-d:#1e3a8a;--blue-bg:#0c1a3a;
+  --teal:#14b8a6;--teal-bg:#042320;
+  --orange:#f97316;
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'IBM Plex Sans',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--t1);font-size:14px;line-height:1.5}
+/* SHELL */
+.shell{display:flex;min-height:100vh}
+.sidebar{width:210px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--b1);position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column}
+.main{flex:1;overflow-x:hidden;padding:0}
+/* SIDEBAR */
+.logo{padding:22px 20px 18px;border-bottom:1px solid var(--b1)}
+.logo-mark{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--t1);letter-spacing:.08em}
+.logo-tag{font-size:10px;color:var(--t3);margin-top:3px;font-family:var(--mono)}
+.nav{padding:12px 0;flex:1}
+.nav-sec{font-size:9px;font-weight:600;color:var(--t3);padding:14px 20px 5px;letter-spacing:.12em;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 20px;font-size:12px;color:var(--t3);cursor:pointer;transition:all .12s;border-left:2px solid transparent}
+.nav-item:hover{color:var(--t2);background:var(--s2)}
+.nav-item.active{color:var(--t1);border-left-color:var(--green);background:var(--s2);font-weight:500}
+.nav-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+.sync-bar{padding:14px 20px;border-top:1px solid var(--b1);font-size:10px;color:var(--t3);font-family:var(--mono)}
+.sync-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:5px}
+/* TOPBAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 28px;border-bottom:1px solid var(--b1);background:var(--s1);position:sticky;top:0;z-index:10}
+.topbar-title{font-size:13px;font-weight:600;color:var(--t1);letter-spacing:.02em}
+.topbar-sub{font-size:11px;color:var(--t3);margin-top:1px}
+.time-btns{display:flex;gap:4px}
+.tbtn{font-family:var(--mono);font-size:11px;padding:5px 12px;background:var(--s2);border:1px solid var(--b2);border-radius:4px;cursor:pointer;color:var(--t3);transition:all .12s}
+.tbtn:hover{border-color:var(--b3);color:var(--t2)}
+.tbtn.active{background:var(--green-bg);border-color:var(--green-d);color:var(--green)}
+/* PANELS */
+.panel{display:none;padding:24px 28px}
+.panel.active{display:block}
+/* COMMAND LAYER */
+.command-box{background:var(--s2);border:1px solid var(--b2);border-radius:10px;padding:20px 24px;margin-bottom:20px;position:relative;overflow:hidden}
+.command-box::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--green),var(--teal),var(--blue))}
+.cmd-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.cmd-label{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--green);letter-spacing:.12em;text-transform:uppercase}
+.cmd-date{font-family:var(--mono);font-size:11px;color:var(--t3)}
+.cmd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.cmd-card{background:var(--s3);border:1px solid var(--b2);border-radius:8px;padding:14px 16px}
+.cmd-card-label{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;font-family:var(--mono)}
+.cmd-card-value{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--t1);letter-spacing:-.02em}
+.cmd-card-sub{font-size:11px;color:var(--t2);margin-top:4px}
+.cmd-actions{margin-top:16px;display:flex;flex-direction:column;gap:6px}
+.cmd-action{display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--t1);padding:8px 12px;background:var(--s3);border-radius:6px;border:1px solid var(--b1)}
+.cmd-action .icon{font-size:13px;margin-top:1px;flex-shrink:0}
+.cmd-action strong{color:var(--t1)}
+.cmd-action span{color:var(--t2)}
+/* AT RISK */
+.risk-table{width:100%;border-collapse:collapse;font-size:12px}
+.risk-table th{text-align:left;padding:8px 12px;font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid var(--b2);font-family:var(--mono)}
+.risk-table td{padding:10px 12px;border-bottom:1px solid var(--b1);vertical-align:top}
+.risk-table tr:last-child td{border-bottom:none}
+.risk-table tr:hover td{background:var(--s2)}
+.risk-pill{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:500;padding:2px 8px;border-radius:4px;font-family:var(--mono)}
+.risk-HIGH{background:var(--red-bg);color:var(--red);border:1px solid var(--red-d)}
+.risk-MED{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-d)}
+.risk-LOW{background:var(--green-bg);color:var(--green);border:1px solid var(--green-d)}
+/* METRICS */
+.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px}
+.metric{background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:16px 18px}
+.metric-label{font-size:10px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px;font-family:var(--mono)}
+.metric-value{font-size:26px;font-weight:600;color:var(--t1);letter-spacing:-.03em;font-family:var(--mono)}
+.metric-sub{font-size:11px;color:var(--t3);margin-top:3px}
+.metric.g .metric-value{color:var(--green)}
+.metric.r .metric-value{color:var(--red)}
+.metric.b .metric-value{color:var(--blue)}
+.metric.a .metric-value{color:var(--amber)}
+/* GRID */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px}
+.grid-60{display:grid;grid-template-columns:3fr 2fr;gap:16px;margin-bottom:16px}
+/* CARD */
+.card{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:18px 20px}
+.card-title{font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px;font-family:var(--mono)}
+/* TABLE */
+table.dt{width:100%;border-collapse:collapse;font-size:12px}
+table.dt th{text-align:left;padding:8px 10px;font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid var(--b2);font-family:var(--mono)}
+table.dt td{padding:9px 10px;border-bottom:1px solid var(--b1);color:var(--t1)}
+table.dt tr:last-child td{border-bottom:none}
+table.dt tr:hover td{background:var(--s3)}
+.mono{font-family:var(--mono);font-size:11px}
+/* BADGE */
+.badge{display:inline-block;font-size:10px;font-weight:500;padding:2px 7px;border-radius:4px;white-space:nowrap;font-family:var(--mono)}
+.b-await{background:var(--amber-bg);color:var(--amber)}
+.b-stip{background:var(--teal-bg);color:var(--teal)}
+.b-neg{background:var(--blue-bg);color:var(--blue)}
+.b-won{background:var(--green-bg);color:var(--green)}
+.b-lost{background:var(--red-bg);color:var(--red)}
+.b-other{background:var(--s3);color:var(--t2)}
+/* FUNNEL */
+.frow{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--b1)}
+.frow:last-child{border-bottom:none}
+.flabel{font-size:11px;width:160px;flex-shrink:0;color:var(--t2)}
+.ftrack{flex:1;height:10px;background:var(--s3);border-radius:2px;overflow:hidden}
+.fbar{height:100%;border-radius:2px}
+.fn{font-family:var(--mono);font-size:11px;color:var(--t3);min-width:28px;text-align:right}
+.fdollar{font-family:var(--mono);font-size:11px;color:var(--t2);min-width:60px;text-align:right}
+/* MOMENTUM */
+.mom-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--b1)}
+.mom-row:last-child{border-bottom:none}
+.mom-label{font-size:12px;color:var(--t2)}
+.mom-vals{display:flex;gap:16px;align-items:center}
+.mom-curr{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--t1)}
+.mom-prev{font-family:var(--mono);font-size:11px;color:var(--t3)}
+.mom-delta{font-family:var(--mono);font-size:11px;font-weight:500;padding:2px 7px;border-radius:4px}
+.up{background:var(--green-bg);color:var(--green)}
+.dn{background:var(--red-bg);color:var(--red)}
+.flat{background:var(--s3);color:var(--t3)}
+/* REP ROWS */
+.rep-row{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--b1)}
+.rep-row:last-child{border-bottom:none}
+.av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0;font-family:var(--mono)}
+.rn{font-size:12px;font-weight:500;flex:1;color:var(--t1)}
+.btrack{flex:1.2;height:3px;background:var(--s3);border-radius:2px;overflow:hidden;max-width:70px}
+.bfill{height:100%;border-radius:2px}
+/* FILTER */
+.filter-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.filter-row select,.filter-row input{height:32px;border:1px solid var(--b2);background:var(--s2);color:var(--t1);font-family:var(--sans);font-size:12px;padding:0 10px;border-radius:5px;outline:none}
+.filter-row select:focus,.filter-row input:focus{border-color:var(--b3)}
+.filter-row input{flex:1;max-width:220px}
+/* PG */
+.pg{display:flex;gap:6px;align-items:center;margin-top:10px;justify-content:flex-end}
+.pgbtn{height:28px;padding:0 12px;font-size:11px;font-family:var(--mono);background:var(--s2);border:1px solid var(--b2);border-radius:4px;cursor:pointer;color:var(--t3)}
+.pgbtn:hover{background:var(--s3);color:var(--t2)}
+.pginfo{font-size:11px;color:var(--t3);font-family:var(--mono)}
+/* AI */
+.ai-wrap{display:flex;flex-direction:column;gap:14px}
+.ai-sel-row{display:flex;gap:8px;align-items:center}
+.ai-sel-row select{flex:1;height:36px;border:1px solid var(--b2);background:var(--s2);color:var(--t1);font-family:var(--sans);font-size:12px;padding:0 10px;border-radius:6px;outline:none}
+.ai-btn{height:36px;padding:0 18px;font-size:12px;font-family:var(--mono);font-weight:500;background:var(--green);color:#000;border:none;border-radius:6px;cursor:pointer;white-space:nowrap;letter-spacing:.02em}
+.ai-btn:hover{background:#16a34a}
+.ai-chips{display:flex;gap:6px;flex-wrap:wrap}
+.ai-chip{font-size:11px;padding:6px 12px;background:var(--s2);border:1px solid var(--b2);border-radius:99px;cursor:pointer;color:var(--t3);font-family:var(--mono);transition:all .12s}
+.ai-chip:hover{background:var(--s3);border-color:var(--b3);color:var(--t2)}
+.ai-out{background:var(--s3);border:1px solid var(--b2);border-radius:8px;padding:18px 20px;min-height:110px;font-size:12px;line-height:1.85;color:var(--t1);white-space:pre-wrap;font-family:var(--sans)}
+.ai-out.idle{color:var(--t3);font-style:italic}
+.alabel{font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;font-family:var(--mono)}
+/* SPIN */
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{display:inline-block;animation:spin .7s linear infinite}
+/* ACT BTN */
+.actbtn{font-size:10px;padding:2px 8px;background:none;border:1px solid var(--b2);border-radius:3px;cursor:pointer;color:var(--t3);font-family:var(--mono)}
+.actbtn:hover{background:var(--s3);color:var(--t2)}
+/* SCROLLBAR */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--b2);border-radius:3px}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-mark">SLATE</div>
+    <div class="logo-tag">Operations v2</div>
+  </div>
+  <nav class="nav">
+    <div class="nav-sec">Command</div>
+    <div class="nav-item active" onclick="go('command',this)"><span class="nav-dot" style="background:var(--green)"></span>Command Center</div>
+    <div class="nav-item" onclick="go('risk',this)"><span class="nav-dot" style="background:var(--red)"></span>At-Risk Engine</div>
+    <div class="nav-sec">Analytics</div>
+    <div class="nav-item" onclick="go('overview',this)"><span class="nav-dot"></span>Overview</div>
+    <div class="nav-item" onclick="go('reps',this)"><span class="nav-dot"></span>Rep Performance</div>
+    <div class="nav-item" onclick="go('pipeline',this)"><span class="nav-dot"></span>Pipeline Value</div>
+    <div class="nav-item" onclick="go('momentum',this)"><span class="nav-dot"></span>Momentum</div>
+    <div class="nav-sec">Operations</div>
+    <div class="nav-item" onclick="go('cases',this)"><span class="nav-dot"></span>Active Cases</div>
+    <div class="nav-item" onclick="go('agent',this)"><span class="nav-dot" style="background:var(--blue)"></span>AI Agent</div>
+  </nav>
+  <div class="sync-bar"><span class="sync-dot"></span>Source: CRM export<br>Data: Apr 1, 2026</div>
+</aside>
+
+<main class="main">
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div>
+    <div class="topbar-title" id="topbar-title">Command Center</div>
+    <div class="topbar-sub" id="topbar-sub">Today's directives · Apr 1, 2026</div>
+  </div>
+  <div class="time-btns">
+    <button class="tbtn" onclick="setTime('yesterday',this)">Yesterday</button>
+    <button class="tbtn active" onclick="setTime('week',this)">This Week</button>
+    <button class="tbtn" onclick="setTime('month',this)">This Month</button>
+    <button class="tbtn" onclick="setTime('all',this)">All Time</button>
+  </div>
+</div>
+
+<!-- COMMAND CENTER -->
+<div id="p-command" class="panel active">
+  <div class="command-box">
+    <div class="cmd-header">
+      <div class="cmd-label">⬤ Today's Command</div>
+      <div class="cmd-date" id="cmd-date">Apr 1, 2026 · Week of Mar 30</div>
+    </div>
+    <div class="cmd-grid">
+      <div class="cmd-card">
+        <div class="cmd-card-label">Close target</div>
+        <div class="cmd-card-value" id="cmd-close-target">19</div>
+        <div class="cmd-card-sub">stips ready to sign</div>
+      </div>
+      <div class="cmd-card">
+        <div class="cmd-card-label">At risk</div>
+        <div class="cmd-card-value" style="color:var(--red)" id="cmd-at-risk">12</div>
+        <div class="cmd-card-sub">cases need action today</div>
+      </div>
+      <div class="cmd-card">
+        <div class="cmd-card-label">Pipeline value</div>
+        <div class="cmd-card-value" style="color:var(--teal)">$847K</div>
+        <div class="cmd-card-sub">in active stages</div>
+      </div>
+    </div>
+    <div class="cmd-actions" id="cmd-directives"></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Wins & losses — <span id="chart-period-label">this week</span></div>
+      <div style="position:relative;width:100%;height:200px"><canvas id="trendChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Rep output — <span id="rep-period-label">this week</span></div>
+      <div id="rep-output-list"></div>
+    </div>
+  </div>
+
+  <div class="grid3">
+    <div class="card">
+      <div class="card-title">Period totals</div>
+      <div id="period-stats"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Active pipeline</div>
+      <div class="frow"><div class="flabel">Awaiting Stip</div><div class="ftrack"><div class="fbar" style="width:100%;background:#92400e88"></div></div><div class="fn">53</div><div class="fdollar">$210K</div></div>
+      <div class="frow"><div class="flabel">Negotiation</div><div class="ftrack"><div class="fbar" style="width:94%;background:#1e3a8a88"></div></div><div class="fn">50</div><div class="fdollar">$380K</div></div>
+      <div class="frow"><div class="flabel">Stip Sent</div><div class="ftrack"><div class="fbar" style="width:36%;background:#042320aa"></div></div><div class="fn">19</div><div class="fdollar">$104K</div></div>
+      <div class="frow"><div class="flabel">Earlier stages</div><div class="ftrack"><div class="fbar" style="width:25%;background:#1e1e2e88"></div></div><div class="fn">57</div><div class="fdollar">$153K</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">7-day momentum</div>
+      <div class="mom-row"><div class="mom-label">Wins</div><div class="mom-vals"><div class="mom-curr">30</div><div class="mom-prev">prev: 63</div><div class="mom-delta dn">▼ 52%</div></div></div>
+      <div class="mom-row"><div class="mom-label">Losses</div><div class="mom-vals"><div class="mom-curr">6</div><div class="mom-prev">prev: 10</div><div class="mom-delta up">▼ 40%</div></div></div>
+      <div class="mom-row"><div class="mom-label">Win rate</div><div class="mom-vals"><div class="mom-curr">83%</div><div class="mom-prev">prev: 86%</div><div class="mom-delta flat">— flat</div></div></div>
+      <div class="mom-row"><div class="mom-label">Active cases</div><div class="mom-vals"><div class="mom-curr">116</div><div class="mom-prev">CRM live</div><div class="mom-delta flat">— CRM</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- AT RISK -->
+<div id="p-risk" class="panel">
+  <div style="margin-bottom:20px">
+    <p style="font-size:12px;color:var(--t3);margin-bottom:14px">Auto-generated from CRM data. Cases scored by: response date age, debt size, rep close rate, and stage stagnation.</p>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table class="risk-table" id="risk-tbody-wrap">
+      <thead><tr>
+        <th style="width:160px">Client</th>
+        <th style="width:130px">Rep</th>
+        <th style="width:80px">Risk</th>
+        <th style="width:100px">Debt</th>
+        <th style="width:110px">Stage</th>
+        <th>Risk reason</th>
+        <th style="width:180px">Action</th>
+      </tr></thead>
+      <tbody id="risk-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- OVERVIEW -->
+<div id="p-overview" class="panel">
+  <div class="metrics">
+    <div class="metric"><div class="metric-label">Total Cases</div><div class="metric-value" id="ov-total">—</div><div class="metric-sub" id="ov-period">loading...</div></div>
+    <div class="metric g"><div class="metric-label">Won</div><div class="metric-value" id="ov-won">—</div><div class="metric-sub" id="ov-cr">—</div></div>
+    <div class="metric r"><div class="metric-label">Lost</div><div class="metric-value" id="ov-lost">—</div><div class="metric-sub" id="ov-lr">—</div></div>
+    <div class="metric b"><div class="metric-label">Active Pipeline</div><div class="metric-value">116</div><div class="metric-sub">CRM live</div></div>
+    <div class="metric a"><div class="metric-label">In Negotiation</div><div class="metric-value">50</div><div class="metric-sub">$380K value</div></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Performance trend</div>
+      <div style="position:relative;width:100%;height:210px"><canvas id="overviewChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Top reps by close rate</div>
+      <div id="ov-rep-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- REP PERFORMANCE -->
+<div id="p-reps" class="panel">
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title">Negotiator scorecard — <span id="rep-period-title">all time</span></div>
+    <table class="dt" style="table-layout:fixed">
+      <thead><tr>
+        <th style="width:160px">Rep</th><th style="width:65px">Cases</th><th style="width:65px">Won</th>
+        <th style="width:65px">Lost</th><th style="width:65px">Active</th>
+        <th style="width:95px">Close rate</th><th style="width:85px">Loss rate</th>
+        <th style="width:95px">Trend</th>
+      </tr></thead>
+      <tbody id="rep-tbody"></tbody>
+    </table>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Close rate comparison</div>
+      <div style="position:relative;width:100%;height:280px"><canvas id="closeBar"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Volume vs close rate</div>
+      <div style="position:relative;width:100%;height:280px"><canvas id="scatterPlot"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- PIPELINE VALUE -->
+<div id="p-pipeline" class="panel">
+  <div class="metrics" style="grid-template-columns:repeat(4,1fr)">
+    <div class="metric a"><div class="metric-label">Awaiting Stip</div><div class="metric-value">$210K</div><div class="metric-sub">53 cases · avg $3,962</div></div>
+    <div class="metric b"><div class="metric-label">In Negotiation</div><div class="metric-value">$380K</div><div class="metric-sub">50 cases · avg $7,591</div></div>
+    <div class="metric" style="--mc:var(--teal)"><div class="metric-label">Stip Sent</div><div class="metric-value" style="color:var(--teal)">$104K</div><div class="metric-sub">19 cases · avg $5,474</div></div>
+    <div class="metric g"><div class="metric-label">Total Active</div><div class="metric-value">$847K</div><div class="metric-sub">116 cases · CRM live</div></div>
+  </div>
+  <div class="card" style="margin-bottom:16px;padding:0;overflow:hidden">
+    <table class="dt" style="table-layout:fixed">
+      <thead><tr>
+        <th style="width:180px">Stage</th>
+        <th style="width:70px">Cases</th>
+        <th style="width:100px">$ Value</th>
+        <th style="width:90px">Avg Debt</th>
+        <th style="width:80px">Avg Days</th>
+        <th style="width:90px">Conv. Risk</th>
+        <th>Notes</th>
+      </tr></thead>
+      <tbody>
+        <tr><td style="font-weight:500">Awaiting Stipulation</td><td class="mono">53</td><td class="mono" style="color:var(--amber)">$210,241</td><td class="mono">$3,966</td><td class="mono">~14d</td><td><span class="risk-pill risk-HIGH">HIGH</span></td><td style="font-size:11px;color:var(--t3)">Response dates overdue on 18 cases</td></tr>
+        <tr><td style="font-weight:500">Negotiation</td><td class="mono">50</td><td class="mono" style="color:var(--blue)">$379,573</td><td class="mono">$7,591</td><td class="mono">~9d</td><td><span class="risk-pill risk-MED">MED</span></td><td style="font-size:11px;color:var(--t3)">High-value stage — John Heffernan $30.7K</td></tr>
+        <tr><td style="font-weight:500">Stip Sent to Client</td><td class="mono">19</td><td class="mono" style="color:var(--teal)">$104,000</td><td class="mono">$5,474</td><td class="mono">~6d</td><td><span class="risk-pill risk-MED">MED</span></td><td style="font-size:11px;color:var(--t3)">Awaiting client signature — follow up now</td></tr>
+        <tr><td style="font-weight:500">POA / File Prep stages</td><td class="mono">57</td><td class="mono" style="color:var(--t2)">$153,000</td><td class="mono">$2,684</td><td class="mono">—</td><td><span class="risk-pill risk-LOW">LOW</span></td><td style="font-size:11px;color:var(--t3)">Early pipeline, lower urgency</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Pipeline $ by stage</div>
+      <div style="position:relative;width:100%;height:220px"><canvas id="pipeValueChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">All-time stage distribution</div>
+      <div style="position:relative;width:100%;height:220px"><canvas id="allStageChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- MOMENTUM -->
+<div id="p-momentum" class="panel">
+  <div class="grid2" style="margin-bottom:16px">
+    <div class="card">
+      <div class="card-title">7-day wins: last vs prior week</div>
+      <div style="position:relative;width:100%;height:200px"><canvas id="momChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Momentum indicators</div>
+      <div class="mom-row"><div class="mom-label">Wins this week (Mar 30)</div><div class="mom-vals"><div class="mom-curr">30</div><div class="mom-prev">prev week: 63</div><div class="mom-delta dn">▼ 52%</div></div></div>
+      <div class="mom-row"><div class="mom-label">Wins Mar (full month)</div><div class="mom-vals"><div class="mom-curr">271</div><div class="mom-prev">Feb: 230</div><div class="mom-delta up">▲ 18%</div></div></div>
+      <div class="mom-row"><div class="mom-label">Losses this week</div><div class="mom-vals"><div class="mom-curr">6</div><div class="mom-prev">prev: 10</div><div class="mom-delta up">▼ 40%</div></div></div>
+      <div class="mom-row"><div class="mom-label">Win rate this week</div><div class="mom-vals"><div class="mom-curr">83%</div><div class="mom-prev">prev: 86%</div><div class="mom-delta flat">— flat</div></div></div>
+      <div class="mom-row"><div class="mom-label">Stip → Won conversion</div><div class="mom-vals"><div class="mom-curr">~78%</div><div class="mom-prev">est. from data</div><div class="mom-delta up">▲ on track</div></div></div>
+      <div class="mom-row"><div class="mom-label">Peak (Jan 20–21)</div><div class="mom-vals"><div class="mom-curr">396</div><div class="mom-prev">2 days</div><div class="mom-delta flat">anomaly</div></div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Daily wins — full period</div>
+    <div style="position:relative;width:100%;height:180px"><canvas id="dailyWinsChart"></canvas></div>
+  </div>
+</div>
+
+<!-- ACTIVE CASES -->
+<div id="p-cases" class="panel">
+  <div class="filter-row">
+    <select id="f-rep" onchange="renderActive()"><option value="">All negotiators</option></select>
+    <select id="f-status" onchange="renderActive()"><option value="">All stages</option></select>
+    <select id="f-creditor" onchange="renderActive()"><option value="">All creditors</option></select>
+    <input id="f-search" placeholder="Search client..." oninput="renderActive()"/>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table class="dt" style="table-layout:fixed">
+      <thead><tr>
+        <th style="width:175px">Client</th><th style="width:140px">Negotiator</th>
+        <th style="width:145px">Stage</th><th style="width:130px">Creditor</th>
+        <th style="width:90px">Debt</th><th style="width:85px">Response</th><th style="width:55px"></th>
+      </tr></thead>
+      <tbody id="active-tbody"></tbody>
+    </table>
+  </div>
+  <div class="pg">
+    <button class="pgbtn" onclick="prevPg()">← prev</button>
+    <span class="pginfo" id="pginfo"></span>
+    <button class="pgbtn" onclick="nextPg()">next →</button>
+  </div>
+</div>
+
+<!-- AI AGENT -->
+<div id="p-agent" class="panel">
+  <div class="grid-60">
+    <div class="card">
+      <div class="ai-wrap">
+        <div>
+          <div class="alabel" style="margin-bottom:10px">Coach a rep on a case</div>
+          <div class="ai-sel-row">
+            <select id="case-sel"><option value="">— select client —</option></select>
+            <button class="ai-btn" onclick="runCase()">Coach ↗</button>
+          </div>
+        </div>
+        <div>
+          <div class="alabel" style="margin-bottom:10px">Pipeline intelligence</div>
+          <div class="ai-chips">
+            <span class="ai-chip" onclick="quick('Which 3 cases are most at risk of being lost and what should each rep do today?')">At-risk cases ↗</span>
+            <span class="ai-chip" onclick="quick('Which reps are underperforming right now and what specifically should their manager do?')">Rep coaching ↗</span>
+            <span class="ai-chip" onclick="quick('What are the top 5 actions today to maximize wins this week?')">Today\'s moves ↗</span>
+            <span class="ai-chip" onclick="quick('53 cases in Awaiting Stip worth $210K. How do we move the most to Won this week?')">Close the stips ↗</span>
+            <span class="ai-chip" onclick="quick('Fernando Gallego 21% close rate. Root cause analysis and manager playbook.')">Fernando audit ↗</span>
+            <span class="ai-chip" onclick="quick('The CRM shows 53 Awaiting Stip but our tracking sheet showed 73. 19 Stip Sent vs 50. Operationally what does this mean and what is the fix?')">Data trust fix ↗</span>
+          </div>
+        </div>
+        <div class="ai-out idle" id="ai-out">Select a case or tap a question.</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Active by rep (CRM)</div>
+      <table class="dt" style="font-size:11px">
+        <thead><tr><th>Rep</th><th>Await</th><th>Stip</th><th>Neg</th><th>$Val</th></tr></thead>
+        <tbody id="rep-active-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+</main>
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────────────
+const DAILY=[{date:"2025-12-24",Lost:0,Won:1},{date:"2025-12-29",Lost:0,Won:11},{date:"2025-12-30",Lost:0,Won:11},{date:"2026-01-05",Lost:0,Won:17},{date:"2026-01-06",Lost:2,Won:16},{date:"2026-01-12",Lost:3,Won:17},{date:"2026-01-13",Lost:5,Won:12},{date:"2026-01-14",Lost:1,Won:8},{date:"2026-01-15",Lost:3,Won:8},{date:"2026-01-19",Lost:0,Won:19},{date:"2026-01-20",Lost:12,Won:113},{date:"2026-01-21",Lost:116,Won:283},{date:"2026-01-22",Lost:2,Won:13},{date:"2026-01-26",Lost:0,Won:14},{date:"2026-01-27",Lost:20,Won:16},{date:"2026-01-28",Lost:25,Won:14},{date:"2026-01-29",Lost:5,Won:14},{date:"2026-02-02",Lost:4,Won:20},{date:"2026-02-04",Lost:15,Won:17},{date:"2026-02-05",Lost:2,Won:17},{date:"2026-02-06",Lost:0,Won:11},{date:"2026-02-09",Lost:0,Won:13},{date:"2026-02-10",Lost:3,Won:9},{date:"2026-02-11",Lost:0,Won:6},{date:"2026-02-12",Lost:5,Won:5},{date:"2026-02-16",Lost:4,Won:20},{date:"2026-02-17",Lost:1,Won:16},{date:"2026-02-18",Lost:0,Won:4},{date:"2026-02-19",Lost:0,Won:13},{date:"2026-02-20",Lost:2,Won:12},{date:"2026-02-23",Lost:3,Won:10},{date:"2026-02-24",Lost:0,Won:9},{date:"2026-02-25",Lost:1,Won:6},{date:"2026-02-26",Lost:0,Won:21},{date:"2026-02-27",Lost:7,Won:16},{date:"2026-03-02",Lost:4,Won:6},{date:"2026-03-03",Lost:1,Won:8},{date:"2026-03-04",Lost:9,Won:19},{date:"2026-03-05",Lost:6,Won:20},{date:"2026-03-06",Lost:1,Won:15},{date:"2026-03-09",Lost:5,Won:6},{date:"2026-03-10",Lost:2,Won:10},{date:"2026-03-11",Lost:0,Won:15},{date:"2026-03-12",Lost:5,Won:6},{date:"2026-03-13",Lost:1,Won:5},{date:"2026-03-16",Lost:1,Won:22},{date:"2026-03-17",Lost:3,Won:15},{date:"2026-03-18",Lost:0,Won:8},{date:"2026-03-19",Lost:1,Won:10},{date:"2026-03-20",Lost:6,Won:12},{date:"2026-03-23",Lost:5,Won:12},{date:"2026-03-24",Lost:1,Won:9},{date:"2026-03-25",Lost:0,Won:17},{date:"2026-03-26",Lost:3,Won:7},{date:"2026-03-27",Lost:1,Won:18},{date:"2026-03-30",Lost:4,Won:22},{date:"2026-03-31",Lost:2,Won:8}];
+
+const REPS=[
+  {name:"Marlon Altamirano",total:606,won:188,lost:3,active:39,cr:31.0,lr:0.5,color:"#22c55e",
+   monthly:{Dec:3,Jan:80,Feb:62,Mar:43}},
+  {name:"Shawn Prioleau",total:388,won:160,lost:3,active:22,cr:41.2,lr:0.8,color:"#3b82f6",
+   monthly:{Dec:7,Jan:62,Feb:45,Mar:46}},
+  {name:"Joe Esquivel",total:375,won:127,lost:8,active:20,cr:33.9,lr:2.1,color:"#a855f7",
+   monthly:{Dec:1,Jan:73,Feb:26,Mar:27}},
+  {name:"Roscoe Perkett",total:311,won:113,lost:8,active:6,cr:36.3,lr:2.6,color:"#f97316",
+   monthly:{Dec:4,Jan:55,Feb:27,Mar:27}},
+  {name:"Maria Paula Marin",total:218,won:57,lost:1,active:20,cr:26.1,lr:0.5,color:"#ec4899",
+   monthly:{Dec:1,Jan:18,Feb:21,Mar:17}},
+  {name:"Fernando Gallego",total:179,won:38,lost:2,active:14,cr:21.2,lr:1.1,color:"#f59e0b",
+   monthly:{Dec:0,Jan:10,Feb:15,Mar:13}},
+  {name:"Jacob Trowbridge",total:59,won:25,lost:1,active:2,cr:42.4,lr:1.7,color:"#14b8a6",
+   monthly:{Dec:0,Jan:9,Feb:7,Mar:9}},
+  {name:"Juan Tamayo",total:80,won:20,lost:0,active:0,cr:25.0,lr:0.0,color:"#84cc16",
+   monthly:{Dec:2,Jan:14,Feb:3,Mar:1}},
+];
+
+const ACTIVE=[{client:"Christina Mack",negotiator:"Marlon Altamirano",case_manager:"Jacob Trowbridge",creditor:"CREDITONEBNK",debt:"$872.35",response_date:"",urgent:"no",status:"Awaiting Stipulation"},{client:"Mckenzie Murphy",negotiator:"Marlon Altamirano",case_manager:"Jacob Trowbridge",creditor:"CBNA",debt:"$5898.27",response_date:"6/02/26",urgent:"no",status:"Awaiting Stipulation"},{client:"Eric Berg",negotiator:"Marlon Altamirano",case_manager:"Roscoe Perkett",creditor:"CELTIC/CONT",debt:"$1463.16",response_date:"3/14/26",urgent:"no",status:"Awaiting Stipulation"},{client:"Lynn Rush",negotiator:"Marlon Altamirano",case_manager:"Roscoe Perkett",creditor:"CRDTONEBNK",debt:"$981.66",response_date:"5/05/26",urgent:"no",status:"Awaiting Stipulation"},{client:"Thomas Ensworth",negotiator:"Marlon Altamirano",case_manager:"Roscoe Perkett",creditor:"WEBBANKAVANT",debt:"$1885.96",response_date:"4/21/26",urgent:"no",status:"Awaiting Stipulation"},{client:"Don Collett",negotiator:"Shawn Prioleau",case_manager:"Shawn Prioleau",creditor:"CAPITAL ONE",debt:"$3002.35",response_date:"4/11/26",urgent:"no",status:"Awaiting Stipulation"},{client:"Antonio Serna",negotiator:"Marlon Altamirano",case_manager:"Jacob Trowbridge",creditor:"CCB/PETLND",debt:"$5595.69",response_date:"",urgent:"no",status:"Awaiting Stipulation"},{client:"Antonio Castillo",negotiator:"Fernando Gallego",case_manager:"Fernando Gallego",creditor:"CAPITAL ONE",debt:"$3963.21",response_date:"4/21/26",urgent:"no",status:"Awaiting Stipulation"},{client:"Alexis Vasquez",negotiator:"Marlon Altamirano",case_manager:"Maria Paula Marin",creditor:"SYNCB/EBAY",debt:"$3397.26",response_date:"",urgent:"no",status:"Awaiting Stipulation"},{client:"Lonzel Chambliss",negotiator:"Marlon Altamirano",case_manager:"Jacob Trowbridge",creditor:"SYNCB/PPC",debt:"$4434.77",response_date:"4/10/26",urgent:"no",status:"Awaiting Stipulation"},{client:"Martin Cardona Navarrete",negotiator:"Marlon Altamirano",case_manager:"Joe Esquivel",creditor:"CBNA",debt:"$11238.33",response_date:"4/21/25",urgent:"no",status:"Awaiting Stipulation"},{client:"Lori Johnson",negotiator:"Roscoe Perkett",case_manager:"Roscoe Perkett",creditor:"SYNCB/CARECR",debt:"$4940.20",response_date:"5/11/26",urgent:"no",status:"Awaiting Stipulation"},{client:"David Foster",negotiator:"Marlon Altamirano",case_manager:"Jacob Trowbridge",creditor:"SYNCB/PPC",debt:"$670.23",response_date:"",urgent:"no",status:"Awaiting Stipulation"},{client:"Cindy Christ",negotiator:"Shawn Prioleau",case_manager:"Shawn Prioleau",creditor:"CAPITAL ONE",debt:"$3399.36",response_date:"4/05/26",urgent:"no",status:"Awaiting Stipulation"},{client:"Sue Alvarado",negotiator:"Shawn Prioleau",case_manager:"Roscoe Perkett",creditor:"CAPITAL ONE",debt:"$9588.25",response_date:"4/01/26",urgent:"no",status:"Awaiting Stipulation"},{client:"Joanne Mayberry",negotiator:"Marlon Altamirano",case_manager:"Jacob Trowbridge",creditor:"COMENITYCAPITALBANK/OVER",debt:"$1003.02",response_date:"5/08/26",urgent:"no",status:"Awaiting Stipulation"},{client:"Tara Stauffenberg",negotiator:"Shawn Prioleau",case_manager:"Shawn Prioleau",creditor:"CREDITONEBNK",debt:"$1561.47",response_date:"4/15/26",urgent:"no",status:"Awaiting Stipulation"},{client:"Carmen Burgos",negotiator:"Joe Esquivel",case_manager:"Joe Esquivel",creditor:"BRCLYOLDNAVY",debt:"$2462.80",response_date:"3/29/25",urgent:"no",status:"Awaiting Stipulation"},{client:"Yliana Rodriguez",negotiator:"Marlon Altamirano",case_manager:"Joe Esquivel",creditor:"CCB/BURLIN",debt:"$1562.24",response_date:"3/23/26",urgent:"no",status:"Awaiting Stipulation"},{client:"Cecil Littlejohn",negotiator:"Shawn Prioleau",case_manager:"Shawn Prioleau",creditor:"ZEAL CU",debt:"$4645.83",response_date:"3/31/26",urgent:"no",status:"Awaiting Stipulation"},{client:"Denid Marquez",negotiator:"Roscoe Perkett",case_manager:"Roscoe Perkett",creditor:"LENDMARK",debt:"$8271.99",response_date:"3/12/26",urgent:"no",status:"Awaiting Stipulation"},{client:"Stacey Pollan",negotiator:"Marlon Altamirano",case_manager:"Jacob Trowbridge",creditor:"ELAN FIN SVC",debt:"$11377.26",response_date:"",urgent:"no",status:"Awaiting Stipulation"},{client:"Asha L Pearson",negotiator:"Shawn Prioleau",case_manager:"Shawn Prioleau",creditor:"LENDMARK",debt:"$6260.21",response_date:"4/03/26",urgent:"no",status:"Awaiting Stipulation"},{client:"Isis Cedeno",negotiator:"Maria Paula Marin",case_manager:"Joe Esquivel",creditor:"CREDITONEBNK",debt:"$2002.14",response_date:"3/27/26",urgent:"no",status:"Awaiting Stipulation"},{client:"Christopher Howell",negotiator:"Fernando Gallego",case_manager:"Joe Esquivel",creditor:"ONEMAIN",debt:"$10005.78",response_date:"3/25/26",urgent:"no",status:"Awaiting Stipulation"},{client:"George Vassar",negotiator:"Joe Esquivel",case_manager:"Joe Esquivel",creditor:"CITI",debt:"$3521.75",response_date:"2/17/26",urgent:"no",status:"Awaiting Stipulation"},{client:"George Vassar",negotiator:"Joe Esquivel",case_manager:"Joe Esquivel",creditor:"CAPITAL ONE",debt:"$16571.06",response_date:"2/17/26",urgent:"no",status:"Awaiting Stipulation"},{client:"Towanda Anderson",negotiator:"Shawn Prioleau",case_manager:"Shawn Prioleau",creditor:"CAPITAL ONE",debt:"$4263.25",response_date:"3/19/26",urgent:"no",status:"Awaiting Stipulation"},{client:"Martin Hernandez",negotiator:"Joe Esquivel",case_manager:"Joe Esquivel",creditor:"THD/CBNA",debt:"$3080.57",response_date:"2/27/25",urgent:"no",status:"Awaiting Stipulation"},{client:"Heather Garza",negotiator:"Maria Paula Marin",case_manager:"Joe Esquivel",creditor:"WF/HOTELS",debt:"$6185.17",response_date:"2/12/26",urgent:"no",status:"Awaiting Stipulation"},{client:"Elisha Haywood",negotiator:"Maria Paula Marin",case_manager:"Maria Paula Marin",creditor:"LVNVFUNDG",debt:"$1188.95",response_date:"",urgent:"no",status:"Stip sent to client"},{client:"Danuris Gonzalez Reyes",negotiator:"Marlon Altamirano",case_manager:"Maria Paula Marin",creditor:"JPMCB CARD",debt:"$5739.16",response_date:"",urgent:"no",status:"Stip sent to client"},{client:"Amanda Ruckey",negotiator:"Marlon Altamirano",case_manager:"Roscoe Perkett",creditor:"SYNCB/PPC",debt:"$5169.59",response_date:"4/13/26",urgent:"no",status:"Stip sent to client"},{client:"Lilian Garcia",negotiator:"Maria Paula Marin",case_manager:"Maria Paula Marin",creditor:"CAP ONE",debt:"$5758.95",response_date:"",urgent:"no",status:"Stip sent to client"},{client:"Makayla Mesec",negotiator:"Shawn Prioleau",case_manager:"Shawn Prioleau",creditor:"CAPITAL ONE",debt:"$7538.71",response_date:"4/22/26",urgent:"no",status:"Stip sent to client"},{client:"Anthony Bacich",negotiator:"Jacob Trowbridge",case_manager:"Jacob Trowbridge",creditor:"DISCOVERBANK",debt:"$10267.10",response_date:"",urgent:"no",status:"Stip sent to client"},{client:"Kiara Brooks",negotiator:"Marlon Altamirano",case_manager:"Shawn Prioleau",creditor:"CB/VICSCRT",debt:"$1159.70",response_date:"3/30/26",urgent:"no",status:"Stip sent to client"},{client:"Karla Martinez",negotiator:"Joe Esquivel",case_manager:"Joe Esquivel",creditor:"CB/EXPRESS",debt:"$2391.66",response_date:"5/01/26",urgent:"no",status:"Stip sent to client"},{client:"Somkhit Vilaysak",negotiator:"Marlon Altamirano",case_manager:"Jacob Trowbridge",creditor:"CAPITAL ONE",debt:"$11187.18",response_date:"",urgent:"no",status:"Stip sent to client"},{client:"Pedro Caprille",negotiator:"Maria Paula Marin",case_manager:"Maria Paula Marin",creditor:"DISCOVERBANK",debt:"$10644.48",response_date:"1/26/26",urgent:"no",status:"Stip sent to client"},{client:"Jamie Davis",negotiator:"Shawn Prioleau",case_manager:"Shawn Prioleau",creditor:"CREDITONEBNK",debt:"$2860.77",response_date:"",urgent:"no",status:"Negotiation"},{client:"Kaitlyn Armstrong",negotiator:"Roscoe Perkett",case_manager:"Roscoe Perkett",creditor:"SYNCB/CARECR",debt:"$2400.95",response_date:"4/29/26",urgent:"no",status:"Negotiation"},{client:"Jean Hendricks",negotiator:"Shawn Prioleau",case_manager:"Shawn Prioleau",creditor:"DISCOVERBANK",debt:"$4943.66",response_date:"4/23/26",urgent:"no",status:"Negotiation"},{client:"Daniel Chaisson",negotiator:"Roscoe Perkett",case_manager:"Roscoe Perkett",creditor:"BK OF AMER",debt:"$4444.30",response_date:"6/02/26",urgent:"no",status:"Negotiation"},{client:"Jenn Faircloth",negotiator:"Marlon Altamirano",case_manager:"Jacob Trowbridge",creditor:"ONEMAIN",debt:"$10132.78",response_date:"",urgent:"no",status:"Negotiation"},{client:"Deborah Reilly",negotiator:"Maria Paula Marin",case_manager:"Jacob Trowbridge",creditor:"UPGRADE INC",debt:"$15392.42",response_date:"5/04/26",urgent:"no",status:"Negotiation"},{client:"Hailly Green",negotiator:"Marlon Altamirano",case_manager:"Maria Paula Marin",creditor:"WFBNA CARD",debt:"$16745.05",response_date:"",urgent:"no",status:"Negotiation"},{client:"Judith Fortulien",negotiator:"Fernando Gallego",case_manager:"Shawn Prioleau",creditor:"CREDITONEBNK",debt:"$1192.09",response_date:"7/08/26",urgent:"no",status:"Negotiation"},{client:"Irma Mata de Lujan",negotiator:"Joe Esquivel",case_manager:"Joe Esquivel",creditor:"CBNA",debt:"$3722.88",response_date:"4/01/26",urgent:"no",status:"Negotiation"},{client:"Rick Dowe",negotiator:"Joe Esquivel",case_manager:"Joe Esquivel",creditor:"Discover",debt:"$7638.60",response_date:"4/02/26",urgent:"no",status:"Negotiation"},{client:"Juan Alvarez",negotiator:"Joe Esquivel",case_manager:"Joe Esquivel",creditor:"AVANT",debt:"$11152.86",response_date:"4/11/26",urgent:"no",status:"Negotiation"},{client:"Chaiphet Ratsadavong",negotiator:"Marlon Altamirano",case_manager:"Jacob Trowbridge",creditor:"DISCOVERBANK",debt:"$11209.01",response_date:"5/08/26",urgent:"no",status:"Negotiation"},{client:"Jose Zamora",negotiator:"Fernando Gallego",case_manager:"Joe Esquivel",creditor:"CAP ONE",debt:"$10489.35",response_date:"3/21/26",urgent:"no",status:"Negotiation"},{client:"John Heffernan",negotiator:"Roscoe Perkett",case_manager:"Roscoe Perkett",creditor:"JPMCB CARD",debt:"$30770.53",response_date:"8/10/26",urgent:"no",status:"Negotiation"},{client:"Julia Sanchez",negotiator:"Marlon Altamirano",case_manager:"Joe Esquivel",creditor:"CAPITAL ONE",debt:"$5984.31",response_date:"4/06/26",urgent:"no",status:"Negotiation"},{client:"Eduardo Sanchez",negotiator:"Joe Esquivel",case_manager:"Joe Esquivel",creditor:"Citibank",debt:"$22664.00",response_date:"6/22/24",urgent:"no",status:"Negotiation"},{client:"Ilija Iliev",negotiator:"Marlon Altamirano",case_manager:"Shawn Prioleau",creditor:"BK OF AMER",debt:"$34470.43",response_date:"1/07/27",urgent:"no",status:"Negotiation"},{client:"Stephen Suhre",negotiator:"Shawn Prioleau",case_manager:"Shawn Prioleau",creditor:"WFBNA CARD",debt:"$8033.17",response_date:"3/31/26",urgent:"no",status:"Negotiation"},{client:"Ryan Duffy",negotiator:"Shawn Prioleau",case_manager:"Shawn Prioleau",creditor:"CREDITONEBNK",debt:"$1484.86",response_date:"3/28/26",urgent:"no",status:"Negotiation"}];
+
+// ── TIME FILTER ───────────────────────────────────────────────────────────────
+let currentPeriod='week';
+const PERIOD_DATES={
+  yesterday:{start:'2026-03-31',end:'2026-03-31',label:'Yesterday (Mar 31)'},
+  week:{start:'2026-03-30',end:'2026-04-01',label:'This week (Mar 30–Apr 1)'},
+  month:{start:'2026-03-01',end:'2026-03-31',label:'March 2026'},
+  all:{start:'2025-12-01',end:'2026-04-01',label:'All time (Dec 25 – Apr 26)'}
+};
+
+function filterDaily(period){
+  const {start,end}=PERIOD_DATES[period];
+  return DAILY.filter(d=>d.date>=start&&d.date<=end);
+}
+
+function periodStats(period){
+  const rows=filterDaily(period);
+  const won=rows.reduce((a,r)=>a+r.Won,0);
+  const lost=rows.reduce((a,r)=>a+r.Lost,0);
+  const total=won+lost;
+  const cr=total?Math.round(won/total*100):0;
+  return{won,lost,total,cr};
+}
+
+function setTime(period,el){
+  currentPeriod=period;
+  document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  refreshAll();
+}
+
+// ── AT RISK ENGINE ────────────────────────────────────────────────────────────
+function scoreRisk(c){
+  let score=0;const reasons=[];
+  const debt=parseFloat((c.debt||'0').replace(/[$,]/g,''))||0;
+  const rep=REPS.find(r=>r.name===c.negotiator);
+  const repCR=rep?rep.cr:35;
+  // no response date
+  if(!c.response_date){score+=3;reasons.push('No response date set');}
+  else{
+    // parse overdue
+    const parts=c.response_date.split('/');
+    if(parts.length===3){
+      const rd=new Date(`20${parts[2]}`,parseInt(parts[0])-1,parseInt(parts[1]));
+      const today=new Date('2026-04-01');
+      const daysOld=Math.round((today-rd)/86400000);
+      if(daysOld>30){score+=3;reasons.push(`Response date ${daysOld}d overdue`);}
+      else if(daysOld>0){score+=2;reasons.push(`Response date ${daysOld}d past`);}
+    }
+  }
+  if(debt>10000){score+=2;reasons.push(`High balance $${debt.toLocaleString()}`);}
+  else if(debt>5000){score+=1;}
+  if(repCR<25){score+=2;reasons.push(`Rep CR ${repCR}% (low)`);}
+  if(c.status==='Awaiting Stipulation'&&!c.response_date){score+=1;}
+  const risk=score>=5?'HIGH':score>=3?'MED':'LOW';
+  const action=risk==='HIGH'?'Call today + escalate to manager':
+               risk==='MED'?'Follow up within 24h':'Monitor — check next week';
+  return{risk,score,reason:reasons.slice(0,2).join('; ')||'Normal aging',action};
+}
+
+function buildRiskTable(){
+  const scored=ACTIVE.map(c=>({...c,...scoreRisk(c)}))
+    .filter(c=>c.risk!=='LOW')
+    .sort((a,b)=>b.score-a.score)
+    .slice(0,20);
+  document.getElementById('risk-tbody').innerHTML=scored.map(c=>`
+    <tr>
+      <td style="font-weight:500">${c.client}</td>
+      <td style="color:#a0a0a0">${c.negotiator||'—'}</td>
+      <td><span class="risk-pill risk-${c.risk}">${c.risk}</span></td>
+      <td class="mono">${c.debt||'—'}</td>
+      <td><span class="badge ${badgeClass(c.status)}" style="font-size:9px">${c.status}</span></td>
+      <td style="font-size:11px;color:#a0a0a0">${c.reason}</td>
+      <td style="font-size:11px;color:#f0f0f0">${c.action}</td>
+    </tr>`).join('');
+  return scored.filter(c=>c.risk==='HIGH').length;
+}
+
+// ── COMMAND DIRECTIVES ────────────────────────────────────────────────────────
+function buildDirectives(period){
+  const stats=periodStats(period);
+  const stipsNoDate=ACTIVE.filter(c=>c.status==='Awaiting Stipulation'&&!c.response_date).length;
+  const stipsSent=ACTIVE.filter(c=>c.status==='Stip sent to client').length;
+  const fernandoRisk=ACTIVE.filter(c=>c.negotiator==='Fernando Gallego').length;
+  const highRisk=buildRiskTable();
+  document.getElementById('cmd-close-target').textContent=stipsSent;
+  document.getElementById('cmd-at-risk').textContent=highRisk;
+  const directives=[
+    {icon:'▶',text:`<strong>Close ${stipsSent} stips</strong> — <span>${stipsSent} cases have stip sent to client awaiting signature. Call each client today.</span>`},
+    {icon:'▶',text:`<strong>Address ${stipsNoDate} stalled cases</strong> — <span>Awaiting Stip with no response date. Set dates or escalate.</span>`},
+    {icon:'▶',text:`<strong>Fernando Gallego: ${fernandoRisk} active cases, 21% close rate</strong> — <span>Review pipeline with him before noon. Identify stuck cases.</span>`},
+    {icon:'▶',text:`<strong>${highRisk} high-risk cases flagged</strong> — <span>See At-Risk Engine tab for full list with actions.</span>`},
+  ];
+  document.getElementById('cmd-directives').innerHTML=directives.map(d=>`
+    <div class="cmd-action"><span class="icon" style="color:var(--green)">${d.icon}</span><span>${d.text}</span></div>`).join('');
+}
+
+// ── CHARTS ────────────────────────────────────────────────────────────────────
+let trendC,overviewC,closeC,scatterC,pipeC,allStageC,momC,dailyC;
+
+function buildTrendChart(period){
+  const rows=filterDaily(period);
+  if(trendC)trendC.destroy();
+  trendC=new Chart(document.getElementById('trendChart'),{
+    type:'bar',
+    data:{labels:rows.map(d=>d.date.slice(5)),datasets:[
+      {label:'Won',data:rows.map(d=>d.Won),backgroundColor:'#22c55e22',borderColor:'#22c55e',borderWidth:1.5},
+      {label:'Lost',data:rows.map(d=>d.Lost),backgroundColor:'#ef444422',borderColor:'#ef4444',borderWidth:1.5}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#606060',font:{size:9},maxRotation:45,autoSkip:true},grid:{display:false}},
+              y:{ticks:{color:'#606060',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}}}}
+  });
+}
+
+function buildOverviewChart(period){
+  const rows=filterDaily(period);
+  if(overviewC)overviewC.destroy();
+  const el=document.getElementById('overviewChart');
+  if(!el)return;
+  overviewC=new Chart(el,{
+    type:'bar',
+    data:{labels:rows.map(d=>d.date.slice(5)),datasets:[
+      {label:'Won',data:rows.map(d=>d.Won),backgroundColor:'#22c55e22',borderColor:'#22c55e',borderWidth:1.5},
+      {label:'Lost',data:rows.map(d=>d.Lost),backgroundColor:'#ef444422',borderColor:'#ef4444',borderWidth:1.5}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#606060',font:{size:9},maxRotation:45,autoSkip:true},grid:{display:false}},
+              y:{ticks:{color:'#606060',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}}}}
+  });
+}
+
+function buildRepCharts(){
+  if(closeC)closeC.destroy();
+  if(scatterC)scatterC.destroy();
+  const top=REPS.slice(0,8);
+  closeC=new Chart(document.getElementById('closeBar'),{
+    type:'bar',
+    data:{labels:top.map(r=>r.name.split(' ')[0]),
+          datasets:[{data:top.map(r=>r.cr),backgroundColor:top.map(r=>r.color+'44'),borderColor:top.map(r=>r.color),borderWidth:1}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{max:55,ticks:{color:'#606060',font:{size:10},callback:v=>v+'%'},grid:{color:'rgba(255,255,255,0.04)'}},
+              y:{ticks:{color:'#a0a0a0',font:{size:11}},grid:{display:false}}}}
+  });
+  scatterC=new Chart(document.getElementById('scatterPlot'),{
+    type:'scatter',
+    data:{datasets:top.map(r=>({label:r.name.split(' ')[0],data:[{x:r.total,y:r.cr}],backgroundColor:r.color+'cc',pointRadius:7,pointHoverRadius:10}))},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:d=>`${d.dataset.label}: ${d.parsed.x} cases · ${d.parsed.y}% CR`}}},
+      scales:{x:{title:{display:true,text:'Cases',color:'#606060',font:{size:10}},min:0,max:650,ticks:{color:'#606060',font:{size:9}},grid:{color:'rgba(255,255,255,0.04)'}},
+              y:{title:{display:true,text:'Close rate %',color:'#606060',font:{size:10}},min:10,max:55,ticks:{color:'#606060',font:{size:9},callback:v=>v+'%'},grid:{color:'rgba(255,255,255,0.04)'}}}}
+  });
+}
+
+function buildPipeCharts(){
+  if(pipeC)pipeC.destroy();
+  if(allStageC)allStageC.destroy();
+  pipeC=new Chart(document.getElementById('pipeValueChart'),{
+    type:'bar',
+    data:{labels:['Awaiting Stip','Negotiation','Stip Sent','Earlier'],
+          datasets:[{data:[210241,379573,104000,153000],backgroundColor:['#92400e44','#1e3a8a44','#04232044','#26262644'],borderColor:['#f59e0b','#3b82f6','#14b8a6','#484848'],borderWidth:1.5}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#606060',font:{size:10}},grid:{display:false}},
+              y:{ticks:{color:'#606060',font:{size:10},callback:v=>'$'+Math.round(v/1000)+'K'},grid:{color:'rgba(255,255,255,0.04)'}}}}
+  });
+  const as=[{s:'Won',n:1082,c:'#22c55e'},{s:'Awaiting Stip',n:615,c:'#f59e0b'},{s:'Negotiation',n:455,c:'#3b82f6'},{s:'POA to CLF',n:428,c:'#a855f7'},{s:'Lost',n:302,c:'#ef4444'},{s:'Attempted',n:345,c:'#606060'},{s:'Stip Sent',n:310,c:'#14b8a6'},{s:'Prep',n:196,c:'#84cc16'}];
+  allStageC=new Chart(document.getElementById('allStageChart'),{
+    type:'bar',
+    data:{labels:as.map(d=>d.s),datasets:[{data:as.map(d=>d.n),backgroundColor:as.map(d=>d.c+'44'),borderColor:as.map(d=>d.c),borderWidth:1}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#606060',font:{size:9}},grid:{color:'rgba(255,255,255,0.04)'}},y:{ticks:{color:'#a0a0a0',font:{size:10}},grid:{display:false}}}}
+  });
+}
+
+function buildMomCharts(){
+  if(momC)momC.destroy();
+  if(dailyC)dailyC.destroy();
+  const weeks=['Dec 29','Jan 5','Jan 12','Jan 19','Jan 26','Feb 2','Feb 9','Feb 16','Feb 23','Mar 2','Mar 9','Mar 16','Mar 23','Mar 30'];
+  const wWins=[22,33,45,428,58,65,33,65,62,68,42,67,63,30];
+  const wLoss=[0,2,12,130,50,21,8,7,11,21,13,11,10,6];
+  momC=new Chart(document.getElementById('momChart'),{
+    type:'line',
+    data:{labels:weeks,datasets:[
+      {label:'Won',data:wWins,borderColor:'#22c55e',backgroundColor:'#22c55e11',tension:.3,pointRadius:3},
+      {label:'Lost',data:wLoss,borderColor:'#ef4444',backgroundColor:'#ef444411',tension:.3,pointRadius:3}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#606060',font:{size:9},maxRotation:40},grid:{color:'rgba(255,255,255,0.03)'}},
+              y:{ticks:{color:'#606060',font:{size:9}},grid:{color:'rgba(255,255,255,0.03)'}}}}
+  });
+  dailyC=new Chart(document.getElementById('dailyWinsChart'),{
+    type:'bar',
+    data:{labels:DAILY.map(d=>d.date.slice(5)),
+          datasets:[{data:DAILY.map(d=>d.Won),backgroundColor:'#22c55e33',borderColor:'#22c55e',borderWidth:1}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#606060',font:{size:8},maxRotation:45,autoSkip:true},grid:{display:false}},
+              y:{ticks:{color:'#606060',font:{size:9}},grid:{color:'rgba(255,255,255,0.04)'}}}}
+  });
+}
+
+// ── PERIOD-AWARE RENDERS ──────────────────────────────────────────────────────
+function refreshAll(){
+  const p=currentPeriod;
+  const {label}=PERIOD_DATES[p];
+  const stats=periodStats(p);
+  // topbar
+  document.getElementById('topbar-sub').textContent=label;
+  // command
+  document.getElementById('chart-period-label').textContent=label.toLowerCase();
+  document.getElementById('rep-period-label').textContent=label.toLowerCase();
+  document.getElementById('rep-period-title').textContent=label.toLowerCase();
+  buildDirectives(p);
+  buildTrendChart(p);
+  buildRepOutput(p);
+  buildPeriodStats(p,stats);
+  // overview metrics
+  document.getElementById('ov-total').textContent=(stats.won+stats.lost).toLocaleString();
+  document.getElementById('ov-won').textContent=stats.won.toLocaleString();
+  document.getElementById('ov-lost').textContent=stats.lost.toLocaleString();
+  document.getElementById('ov-cr').textContent=stats.cr+'% close rate';
+  document.getElementById('ov-lr').textContent=stats.total?Math.round(stats.lost/stats.total*100)+'% loss rate':'—';
+  document.getElementById('ov-period').textContent=label;
+  buildOverviewChart(p);
+  // rep table
+  buildRepTable(p);
+}
+
+function buildRepOutput(period){
+  const rows=filterDaily(period);
+  const byRep={};
+  // We don't have per-rep daily data here, show from REPS monthly
+  const months={yesterday:'Mar',week:'Mar',month:'Mar',all:'Jan'};
+  const m=months[period];
+  const sorted=[...REPS].sort((a,b)=>(b.monthly[m]||0)-(a.monthly[m]||0)).slice(0,7);
+  const max=sorted[0]?sorted[0].monthly[m]||1:1;
+  document.getElementById('rep-output-list').innerHTML=sorted.map(r=>`
+    <div class="rep-row">
+      <div class="av" style="background:${r.color}22;color:${r.color}">${r.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
+      <div class="rn">${r.name.split(' ')[0]}</div>
+      <div class="btrack"><div class="bfill" style="width:${Math.round((r.monthly[m]||0)/max*100)}%;background:${r.color}"></div></div>
+      <div style="font-family:var(--mono);font-size:11px;color:#606060;min-width:28px;text-align:right">${r.monthly[m]||0}</div>
+    </div>`).join('');
+}
+
+function buildPeriodStats(period,stats){
+  const rows=filterDaily(period);
+  const total=rows.reduce((a,r)=>a+r.Won+r.Lost,0);
+  document.getElementById('period-stats').innerHTML=`
+    <div class="mom-row"><div class="mom-label">Total outcomes</div><div class="mom-vals"><div class="mom-curr">${total}</div></div></div>
+    <div class="mom-row"><div class="mom-label">Won</div><div class="mom-vals"><div class="mom-curr" style="color:var(--green)">${stats.won}</div></div></div>
+    <div class="mom-row"><div class="mom-label">Lost</div><div class="mom-vals"><div class="mom-curr" style="color:var(--red)">${stats.lost}</div></div></div>
+    <div class="mom-row"><div class="mom-label">Win rate</div><div class="mom-vals"><div class="mom-curr">${stats.cr}%</div></div></div>
+    <div class="mom-row"><div class="mom-label">Active (CRM)</div><div class="mom-vals"><div class="mom-curr" style="color:var(--blue)">116</div></div></div>`;
+}
+
+function buildRepTable(period){
+  const months={yesterday:'Mar',week:'Mar',month:'Mar',all:'all'};
+  document.getElementById('rep-tbody').innerHTML=REPS.map(r=>{
+    const periodWon=months[period]==='all'?r.won:(r.monthly[months[period]]||0);
+    const trend=periodWon>=20?'▲ strong':periodWon>=10?'→ steady':'▼ low';
+    const tColor=periodWon>=20?'var(--green)':periodWon>=10?'var(--amber)':'var(--red)';
+    const crBg=r.cr>=42?'#052e1644':r.cr>=30?'#0c1a3a44':'#1c0e0044';
+    const crC=r.cr>=42?'var(--green)':r.cr>=30?'var(--blue)':'var(--amber)';
+    return`<tr>
+      <td style="font-weight:500">${r.name}</td>
+      <td class="mono">${r.total}</td>
+      <td class="mono" style="color:var(--green)">${r.won}</td>
+      <td class="mono" style="color:var(--red)">${r.lost}</td>
+      <td class="mono" style="color:var(--blue)">${r.active}</td>
+      <td><span class="badge" style="background:${crBg};color:${crC}">${r.cr}%</span></td>
+      <td class="mono" style="color:${r.lr>15?'var(--red)':'var(--t3)'}">${r.lr}%</td>
+      <td style="font-size:11px;color:${tColor}">${trend}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── OVERVIEW REP LIST ─────────────────────────────────────────────────────────
+function buildOvRepList(){
+  const max=Math.max(...REPS.map(r=>r.cr));
+  document.getElementById('ov-rep-list').innerHTML=REPS.slice(0,7).map(r=>`
+    <div class="rep-row">
+      <div class="av" style="background:${r.color}22;color:${r.color}">${r.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
+      <div class="rn">${r.name}</div>
+      <div class="btrack"><div class="bfill" style="width:${Math.round(r.cr/max*100)}%;background:${r.color}"></div></div>
+      <div style="font-family:var(--mono);font-size:11px;color:#606060;min-width:38px;text-align:right">${r.cr}%</div>
+    </div>`).join('');
+}
+
+// ── ACTIVE CASES TABLE ────────────────────────────────────────────────────────
+let pgNum=0,pgSize=20,filtered=[];
+
+function badgeClass(s){
+  if(s==='Awaiting Stipulation')return'b-await';
+  if(s==='Stip sent to client')return'b-stip';
+  if(s==='Negotiation')return'b-neg';
+  if(s==='Won')return'b-won';
+  if(s==='Lost')return'b-lost';
+  return'b-other';
+}
+
+function populateActiveFilters(){
+  const reps=[...new Set(ACTIVE.map(d=>d.negotiator).filter(Boolean))].sort();
+  const sts=[...new Set(ACTIVE.map(d=>d.status))].sort();
+  const creds=[...new Set(ACTIVE.map(d=>d.creditor).filter(Boolean))].sort();
+  document.getElementById('f-rep').innerHTML='<option value="">All negotiators</option>'+reps.map(r=>`<option>${r}</option>`).join('');
+  document.getElementById('f-status').innerHTML='<option value="">All stages</option>'+sts.map(s=>`<option>${s}</option>`).join('');
+  document.getElementById('f-creditor').innerHTML='<option value="">All creditors</option>'+creds.map(c=>`<option>${c}</option>`).join('');
+}
+
+function renderActive(){
+  const rep=document.getElementById('f-rep').value;
+  const st=document.getElementById('f-status').value;
+  const cr=document.getElementById('f-creditor').value;
+  const q=document.getElementById('f-search').value.toLowerCase();
+  filtered=ACTIVE.filter(d=>(!rep||d.negotiator===rep)&&(!st||d.status===st)&&(!cr||d.creditor===cr)&&(!q||d.client.toLowerCase().includes(q)));
+  pgNum=0;showPage();
+}
+
+function showPage(){
+  const s=pgNum*pgSize;
+  document.getElementById('active-tbody').innerHTML=filtered.slice(s,s+pgSize).map(d=>`
+    <tr>
+      <td style="font-weight:500;overflow:hidden;text-overflow:ellipsis">${d.client}</td>
+      <td style="color:#a0a0a0;overflow:hidden;text-overflow:ellipsis">${d.negotiator||'—'}</td>
+      <td><span class="badge ${badgeClass(d.status)}">${d.status}</span></td>
+      <td style="color:#606060;font-size:11px;overflow:hidden;text-overflow:ellipsis">${d.creditor}</td>
+      <td class="mono">${d.debt||'—'}</td>
+      <td class="mono" style="color:#606060">${d.response_date||'—'}</td>
+      <td><button class="actbtn" onclick="aiCase('${d.client.replace(/'/g,"\\'")}','${d.status}','${d.negotiator}')">AI↗</button></td>
+    </tr>`).join('');
+  const tot=Math.ceil(filtered.length/pgSize)||1;
+  document.getElementById('pginfo').textContent=`${pgNum+1}/${tot} (${filtered.length})`;
+}
+function prevPg(){if(pgNum>0){pgNum--;showPage();}}
+function nextPg(){if((pgNum+1)*pgSize<filtered.length){pgNum++;showPage();}}
+
+// ── REP ACTIVE SIDEBAR ────────────────────────────────────────────────────────
+function buildRepActiveSidebar(){
+  const byRep={};
+  ACTIVE.forEach(c=>{
+    const n=c.negotiator||'Unassigned';
+    if(!byRep[n])byRep[n]={await:0,stip:0,neg:0,val:0};
+    if(c.status==='Awaiting Stipulation')byRep[n].await++;
+    else if(c.status==='Stip sent to client')byRep[n].stip++;
+    else if(c.status==='Negotiation')byRep[n].neg++;
+    byRep[n].val+=parseFloat((c.debt||'0').replace(/[$,]/g,''))||0;
+  });
+  const rows=Object.entries(byRep).sort((a,b)=>(b[1].await+b[1].stip+b[1].neg)-(a[1].await+a[1].stip+a[1].neg));
+  document.getElementById('rep-active-tbody').innerHTML=rows.map(([n,v])=>`
+    <tr>
+      <td style="font-size:11px">${n.split(' ')[0]}</td>
+      <td class="mono" style="color:var(--amber)">${v.await}</td>
+      <td class="mono" style="color:var(--teal)">${v.stip}</td>
+      <td class="mono" style="color:var(--blue)">${v.neg}</td>
+      <td class="mono" style="color:var(--t2)">$${Math.round(v.val/1000)}K</td>
+    </tr>`).join('');
+}
+
+// ── AI ────────────────────────────────────────────────────────────────────────
+function populateAgentSelect(){
+  document.getElementById('case-sel').innerHTML='<option value="">— select client —</option>'+
+    ACTIVE.map(d=>`<option value="${d.client}|||${d.status}|||${d.negotiator}">${d.client} — ${d.status}</option>`).join('');
+}
+
+async function callAI(prompt){
+  const out=document.getElementById('ai-out');
+  out.className='ai-out';
+  out.innerHTML='<span class="spin">↻</span>  Analyzing...';
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
+    const data=await r.json();
+    const text=data.content?.map(b=>b.text||'').join('')||'No response.';
+    out.className='ai-out';out.textContent=text;
+  }catch(e){out.className='ai-out';out.textContent='Connection error.';}
+}
+
+function runCase(){
+  const v=document.getElementById('case-sel').value;
+  if(!v)return;
+  const[c,s,n]=v.split('|||');
+  aiCase(c,s,n);
+}
+
+function aiCase(client,status,rep){
+  callAI(`You are a coaching AI for Slate Financial, a debt relief negotiation company. Pipeline: 116 active cases, 24.3% close rate. Awaiting Stip: 53 ($210K), Negotiation: 50 ($380K), Stip Sent: 19.
+
+Case: ${client} | Status: ${status} | Negotiator: ${rep||'Unassigned'}
+
+Stage order: No Contact → Attempted Contact → POA sent → POA to CLF → CFLN → File Prep → Prep Completed → Negotiation → Awaiting Stipulation → Stip sent → Won
+
+Give the rep:
+1. What this stage means RIGHT NOW
+2. The ONE action to take TODAY
+3. Exact script/talking point to use
+4. Urgency flags
+
+Direct, tactical, under 160 words.`);
+}
+
+function quick(q){
+  callAI(`Slate Financial ops data:
+- Marlon: 606 cases, 188W/3L (31% CR), 39 active
+- Shawn: 388 cases, 160W/3L (41%), 22 active
+- Joe: 375 cases, 127W/8L (34%), 20 active
+- Roscoe: 311 cases, 113W/8L (36%), 6 active
+- Maria Paula: 218 cases, 57W/1L (26%), 20 active
+- Fernando: 179 cases, 38W/2L (21%), 14 active — LOWEST CR
+- Jacob: 59 cases, 25W/1L (42%), 2 active
+Active CRM: 116 cases. Awaiting Stip: 53 ($210K). Negotiation: 50 ($380K). Stip Sent: 19 ($104K).
+Momentum: Mar wins=271 (▲18% vs Feb). This week=30 (▼52% vs prior week — partial week).
+CRM vs xlsx discrepancy: xlsx overstated by +20 Awaiting Stip, +31 Stip Sent.
+
+Q: ${q}
+
+Be specific, use names and numbers. Under 220 words.`);
+}
+
+// ── TAB SWITCHING ─────────────────────────────────────────────────────────────
+const CHART_INITS={reps:buildRepCharts,pipeline:buildPipeCharts,momentum:buildMomCharts};
+const TOPBAR={
+  command:'Command Center',risk:'At-Risk Engine',overview:'Overview',
+  reps:'Rep Performance',pipeline:'Pipeline Value',momentum:'Momentum',cases:'Active Cases',agent:'AI Agent'
+};
+
+function go(t,el){
+  document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(e=>e.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('p-'+t).classList.add('active');
+  document.getElementById('topbar-title').textContent=TOPBAR[t];
+  if(CHART_INITS[t])CHART_INITS[t]();
+  if(t==='cases'){populateActiveFilters();filtered=[...ACTIVE];showPage();}
+  if(t==='agent'){populateAgentSelect();buildRepActiveSidebar();}
+  if(t==='overview')buildOvRepList();
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+refreshAll();
+buildOvRepList();
+populateActiveFilters();
+filtered=[...ACTIVE];
+</script>
+</body>
+</html>
